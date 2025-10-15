@@ -1,0 +1,19 @@
+{
+  "name": "isrc-retriever",
+  "version": "1.0.3",
+  "description": "Web app to retrieve ISRCs from Spotify for Excel track lists",
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "keywords": [
+    "isrc",
+    "spotify",
+    "music",
+    "excel"
+  ],
+  "author": "",
+  "license": "MIT"
+}
+

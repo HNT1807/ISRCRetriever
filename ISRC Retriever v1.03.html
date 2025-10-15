@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎵 ISRC Retriever</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        /* CSS Custom Properties */
+        :root {
+            --bg-gradient-start: #efeeee;
+            --bg-gradient-end: #f7f4f4;
+            --primary-text: #2d3436;
+            --secondary-text: #636e72;
+            --input-bg: #e7e4e4;
+            --input-shadow:
+                inset 4px 4px 8px rgba(0,0,0,0.15),
+                inset -2px -2px 6px rgba(255,255,255,0.9),
+                0 0 0 1px rgba(255,255,255,0.3);
+            --button-shadow:
+                0 6px 20px rgba(0,0,0,0.15),
+                0 2px 6px rgba(0,0,0,0.1),
+                inset 0 1px 0 rgba(255,255,255,0.4);
+            --button-hover-shadow:
+                0 8px 25px rgba(0,0,0,0.2),
+                0 4px 10px rgba(0,0,0,0.15),
+                inset 0 1px 0 rgba(255,255,255,0.6);
+            --border-color: #e0e0e0;
+            --accent-color: #1db954;
+            --accent-hover: #1ed760;
+            --error-color: #a93226;
+            --success-color: #1e8449;
+            --card-bg: rgba(255,255,255,0.15);
+            --card-shadow:
+                0 25px 50px rgba(0,0,0,0.1),
+                0 8px 16px rgba(0,0,0,0.06),
+                inset 0 1px 0 rgba(255,255,255,0.3),
+                inset 0 -1px 0 rgba(255,255,255,0.1);
+            --font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        /* Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 50%, #f8f8f8 100%);
+            color: var(--primary-text);
+            font-family: var(--font-family);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            position: relative;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 30% 40%, rgba(255,255,255,0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 60%, rgba(255,255,255,0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* Main App Container */
+        #app-container {
+            width: 100%;
+            max-width: 1400px;
+            background: linear-gradient(145deg, #f0f0f0, #f7f7f7, #f3f3f3);
+            backdrop-filter: blur(30px);
+            padding: 2.5rem;
+            border-radius: 24px;
+            box-shadow:
+                0 25px 50px rgba(0,0,0,0.1),
+                0 8px 16px rgba(0,0,0,0.06),
+                inset 0 1px 0 rgba(255,255,255,0.4),
+                inset 0 -1px 0 rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.4);
+        }
+
+        /* Typography */
+        h1 {
+            text-align: center;
+            color: var(--primary-text);
+            font-weight: 700;
+            margin-bottom: 1rem;
+            font-size: 2.2rem;
+            text-shadow:
+                1px 1px 2px rgba(255,255,255,0.8),
+                -1px -1px 1px rgba(0,0,0,0.2);
+        }
+
+        header p {
+            text-align: center;
+            color: var(--secondary-text);
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Form Fields */
+        .form-section {
+            margin-bottom: 2rem;
+            background: linear-gradient(145deg, #f8f8f8, #fbfbfb);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow:
+                0 8px 16px rgba(0,0,0,0.08),
+                inset 0 1px 0 rgba(255,255,255,0.8);
+        }
+
+        .form-field {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: var(--primary-text);
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: linear-gradient(145deg, #efefef, #f2f2f2, #f0f0f0);
+            border: none;
+            border-radius: 10px;
+            color: var(--primary-text);
+            font-size: 1rem;
+            box-sizing: border-box;
+            box-shadow: var(--input-shadow);
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            background: linear-gradient(145deg, #f0f0f0, #f3f3f3, #f1f1f1);
+            box-shadow:
+                inset 5px 5px 10px rgba(0,0,0,0.25),
+                inset 3px 3px 6px rgba(0,0,0,0.15),
+                inset -3px -3px 6px rgba(255,255,255,1),
+                0 0 0 3px rgba(29, 185, 84, 0.4);
+        }
+
+        /* Buttons */
+        .button {
+            display: inline-block;
+            padding: 14px 28px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: var(--button-shadow);
+            position: relative;
+            overflow: hidden;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            background: linear-gradient(145deg, var(--accent-color) 0%, #159947 50%, var(--accent-color) 100%);
+            color: white;
+            width: 100%;
+            text-align: center;
+        }
+
+        .button:hover:not(:disabled) {
+            box-shadow: var(--button-hover-shadow);
+            background: linear-gradient(145deg, var(--accent-hover) 0%, var(--accent-color) 50%, var(--accent-hover) 100%);
+        }
+        
+        .button:disabled {
+            background: linear-gradient(145deg, #95a5a6 0%, #7f8c8d 50%, #95a5a6 100%);
+            color: rgba(255, 255, 255, 0.7);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Drag & Drop Zone */
+        .drag-drop-zone {
+            border: 2px dashed rgba(0,0,0,0.2);
+            border-radius: 12px;
+            padding: 3rem 1rem;
+            text-align: center;
+            background: linear-gradient(145deg, #f5f5f5, #f8f8f8, #f6f6f6);
+            box-shadow:
+                inset 0 0 10px rgba(0,0,0,0.05),
+                0 4px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .drag-drop-zone:hover {
+            border-color: var(--accent-color);
+            background: linear-gradient(145deg, #f8f8f8, #fbfbfb, #f9f9f9);
+            box-shadow:
+                inset 0 0 25px rgba(29, 185, 84, 0.1),
+                0 12px 24px rgba(0,0,0,0.15);
+        }
+
+        .drag-drop-zone.drag-over {
+            border-color: var(--accent-color);
+            background: linear-gradient(145deg, #f0fff4, #e8f5e8, #f0fff4);
+            box-shadow:
+                inset 0 0 30px rgba(29, 185, 84, 0.2),
+                0 0 20px rgba(29, 185, 84, 0.3);
+            transform: scale(1.02);
+        }
+
+        .drag-drop-content {
+            pointer-events: none;
+        }
+
+        .drag-drop-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.1));
+        }
+
+        .drag-drop-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--primary-text);
+            margin-bottom: 0.5rem;
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
+        }
+
+        .drag-drop-subtitle {
+            font-size: 1rem;
+            color: var(--secondary-text);
+        }
+
+        /* Status Messages */
+        .status-message {
+            text-align: center;
+            padding: 1rem;
+            border-radius: 12px;
+            margin: 1rem 0;
+            display: none;
+        }
+
+        .status-message.success {
+            background: linear-gradient(145deg, #d4edda, #c3e6cb);
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-message.error {
+            background: linear-gradient(145deg, #f8d7da, #f5c6cb);
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-message.processing {
+            background: linear-gradient(-45deg, var(--accent-color), var(--accent-hover), #2ecc71, var(--accent-hover), var(--accent-color));
+            background-size: 400% 400%;
+            color: #ffffff;
+            border: none;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+            animation: pulseGreen 2.5s ease-in-out infinite;
+        }
+
+        @keyframes pulseGreen {
+            0% {
+                background-position: 0% 50%;
+                opacity: 0.8;
+            }
+            50% {
+                background-position: 100% 50%;
+                opacity: 1;
+            }
+            100% {
+                background-position: 0% 50%;
+                opacity: 0.8;
+            }
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            margin: 1rem 0;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-color), var(--accent-hover));
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--secondary-text);
+        }
+
+        /* File Info */
+        .file-info {
+            background: linear-gradient(145deg, #ffffff, #f5f5f5);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            box-shadow:
+                0 4px 8px rgba(0,0,0,0.08),
+                0 2px 4px rgba(0,0,0,0.05),
+                inset 0 1px 0 rgba(255,255,255,0.9);
+            border: 1px solid rgba(255,255,255,0.7);
+            display: none;
+        }
+
+        .file-name {
+            font-weight: 600;
+            color: var(--primary-text);
+            margin-bottom: 0.5rem;
+        }
+
+        .file-stats {
+            color: var(--secondary-text);
+            font-size: 0.9rem;
+        }
+
+        /* Results Table */
+        .results-section {
+            display: none;
+            margin-top: 2rem;
+        }
+
+        /* Search Bar */
+        .search-container {
+            margin-bottom: 1rem;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 16px 12px 45px;
+            background: linear-gradient(145deg, #efefef, #f2f2f2, #f0f0f0);
+            border: none;
+            border-radius: 10px;
+            color: var(--primary-text);
+            font-size: 1rem;
+            box-sizing: border-box;
+            box-shadow: var(--input-shadow);
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            background: linear-gradient(145deg, #f0f0f0, #f3f3f3, #f1f1f1);
+            box-shadow:
+                inset 5px 5px 10px rgba(0,0,0,0.25),
+                inset 3px 3px 6px rgba(0,0,0,0.15),
+                inset -3px -3px 6px rgba(255,255,255,1),
+                0 0 0 3px rgba(29, 185, 84, 0.4);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--secondary-text);
+            font-size: 1.1rem;
+            pointer-events: none;
+        }
+
+        .results-table {
+            width: 100%;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            table-layout: fixed;
+        }
+
+        .results-table th,
+        .results-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .results-table th {
+            background: var(--accent-color);
+            color: white;
+            font-weight: 600;
+        }
+
+        .results-table tr:hover {
+            background: rgba(29, 185, 84, 0.05);
+        }
+
+        .results-table tr.uncertain-match {
+            background: rgba(255, 193, 7, 0.1);
+            border-left: 4px solid #ffc107;
+        }
+
+        .results-table tr.uncertain-match:hover {
+            background: rgba(255, 193, 7, 0.15);
+        }
+
+        /* Non-current-year highlight */
+        .results-table tr.old-release {
+            background: rgba(169, 50, 38, 0.08);
+            border-left: 4px solid rgba(169, 50, 38, 0.6);
+        }
+
+        .results-table tr.old-release:hover {
+            background: rgba(169, 50, 38, 0.12);
+        }
+
+        .uncertain-indicator {
+            color: #e67e22;
+            font-weight: bold;
+        }
+
+        /* Column widths */
+        .results-table th:nth-child(1),
+        .results-table td:nth-child(1) {
+            width: 32%;
+        }
+
+        .results-table th:nth-child(2),
+        .results-table td:nth-child(2) {
+            width: 25%;
+        }
+
+        .results-table th:nth-child(3),
+        .results-table td:nth-child(3) {
+            width: 15%;
+        }
+
+        .results-table th:nth-child(4),
+        .results-table td:nth-child(4) {
+            width: 13%;
+        }
+
+        .results-table th:nth-child(5),
+        .results-table td:nth-child(5) {
+            width: 15%;
+        }
+
+        .status-icon {
+            font-size: 1.2rem;
+            margin-right: 0.5rem;
+        }
+
+        .found { color: var(--success-color); }
+        .uncertain { color: #e67e22; }
+        .not-found { color: var(--error-color); }
+        .searching { color: var(--accent-color); }
+
+        /* Auth Section */
+        .auth-section {
+            margin-bottom: 2rem;
+        }
+
+        .auth-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding: 0.75rem;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+
+        .auth-status.connected {
+            background: rgba(29, 185, 84, 0.1);
+            color: var(--accent-color);
+            border: 1px solid rgba(29, 185, 84, 0.3);
+        }
+
+        .auth-status.disconnected {
+            background: rgba(169, 50, 38, 0.1);
+            color: var(--error-color);
+            border: 1px solid rgba(169, 50, 38, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <header>
+            <h1>🎵 ISRC Retriever</h1>
+            <p>Upload an Excel file with track titles (column A) and artists (column B) to automatically fetch ISRCs using Spotify API</p>
+        </header>
+
+        <!-- Spotify Status Section -->
+        <div class="form-section auth-section">
+            <h2 style="color: var(--primary-text); font-weight: 600; margin-bottom: 1rem; font-size: 1.2rem;">🔐 Spotify Status</h2>
+            <div id="auth-status" class="auth-status disconnected">
+                <span>🔍</span>
+                <span>Connecting to Spotify API...</span>
+            </div>
+        </div>
+
+        <!-- File Upload Section -->
+        <section class="form-section">
+            <h2 style="color: var(--primary-text); font-weight: 600; margin-bottom: 1.5rem; font-size: 1.2rem;">📊 Excel File Upload</h2>
+            <div class="drag-drop-zone" id="drag-drop-zone">
+                <div class="drag-drop-content">
+                    <div class="drag-drop-icon">📊</div>
+                    <div class="drag-drop-title">Drag & Drop Excel File Here</div>
+                    <div class="drag-drop-subtitle">Or click to browse (.xlsx, .xls)</div>
+                </div>
+                <input type="file" id="file-input" accept=".xlsx,.xls" style="display: none;">
+            </div>
+            
+            <div class="file-info" id="file-info">
+                <div class="file-name" id="file-name"></div>
+                <div class="file-stats" id="file-stats"></div>
+            </div>
+        </section>
+
+        <!-- Process Button -->
+        <button class="button" id="process-button" disabled>🔍 Retrieve ISRCs</button>
+
+        <!-- Progress Section -->
+        <div class="progress-container" id="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <div class="progress-text" id="progress-text">Processing...</div>
+        </div>
+
+        <!-- Status Message -->
+        <div id="status-message" class="status-message"></div>
+
+        <!-- Results Section -->
+        <div class="results-section" id="results-section">
+            <h2 style="color: var(--primary-text); font-weight: 600; margin-bottom: 1rem; font-size: 1.2rem;">📋 Results</h2>
+            
+            <!-- Results Legend -->
+            <div style="background: rgba(255,255,255,0.6); padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.9rem; color: var(--secondary-text);">
+                <strong style="color: var(--primary-text);">Legend:</strong>
+                <span style="margin-left: 1rem;">✅ Perfect match</span>
+                <span style="margin-left: 1rem;">⚠️ Uncertain match</span>
+                <span style="margin-left: 1rem;">❌ Not found</span>
+            </div>
+            
+            <!-- Search Bar -->
+            <div class="search-container">
+                <div class="search-icon">🔍</div>
+                <input type="text" class="search-input" id="results-search" placeholder="Search by title, artist, ISRC, or release date...">
+            </div>
+            
+            <div style="overflow-x: auto;">
+                <table class="results-table" id="results-table">
+                    <thead>
+                        <tr>
+                            <th>Track Title</th>
+                            <th>Artist</th>
+                            <th>ISRC</th>
+                            <th>Release Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-tbody">
+                    </tbody>
+                </table>
+            </div>
+            <button class="button" id="download-button" style="margin-top: 1rem;">💾 Download Updated Excel</button>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let accessToken = null;
+        let excelData = null;
+        let processedData = [];
+        let currentFile = null;
+        let processingStartTime = null;
+        let requestCount = 0;
+        let windowStartTime = Date.now();
+
+        // DOM elements
+        const dragDropZone = document.getElementById('drag-drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const fileInfo = document.getElementById('file-info');
+        const fileName = document.getElementById('file-name');
+        const fileStats = document.getElementById('file-stats');
+        const authStatus = document.getElementById('auth-status');
+        const processButton = document.getElementById('process-button');
+        const progressContainer = document.getElementById('progress-container');
+        const progressFill = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+        const statusMessage = document.getElementById('status-message');
+        const resultsSection = document.getElementById('results-section');
+        const resultsTable = document.getElementById('results-table');
+        const resultsTbody = document.getElementById('results-tbody');
+        const downloadButton = document.getElementById('download-button');
+        const resultsSearch = document.getElementById('results-search');
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', () => {
+            setupEventListeners();
+            authenticateSpotify();
+        });
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Drag and drop events
+            dragDropZone.addEventListener('click', () => fileInput.click());
+            dragDropZone.addEventListener('dragover', handleDragOver);
+            dragDropZone.addEventListener('dragleave', handleDragLeave);
+            dragDropZone.addEventListener('drop', handleDrop);
+            
+            // File input change
+            fileInput.addEventListener('change', (e) => handleFiles(Array.from(e.target.files)));
+            
+            // Button events
+            processButton.addEventListener('click', processFile);
+            downloadButton.addEventListener('click', downloadUpdatedExcel);
+            
+            // Search functionality
+            resultsSearch.addEventListener('input', filterResults);
+        }
+
+        // Drag and drop handlers
+        function handleDragOver(e) {
+            e.preventDefault();
+            dragDropZone.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            if (!dragDropZone.contains(e.relatedTarget)) {
+                dragDropZone.classList.remove('drag-over');
+            }
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            dragDropZone.classList.remove('drag-over');
+            handleFiles(Array.from(e.dataTransfer.files));
+        }
+
+        // File handling
+        function handleFiles(files) {
+            const excelFiles = files.filter(file => 
+                file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                file.type === 'application/vnd.ms-excel' ||
+                /\.(xlsx|xls)$/i.test(file.name)
+            );
+
+            if (excelFiles.length === 0) {
+                showStatus('error', 'Please upload a valid Excel file (.xlsx or .xls)');
+                return;
+            }
+
+            if (excelFiles.length > 1) {
+                showStatus('error', 'Please upload only one Excel file at a time');
+                return;
+            }
+
+            const file = excelFiles[0];
+            currentFile = file;
+            readExcelFile(file);
+        }
+
+        // Read Excel file
+        function readExcelFile(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Get first worksheet
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    
+                    // Convert to JSON
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+                        header: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'],
+                        defval: ''
+                    });
+                    
+                    // Skip header row (row 1) and filter out empty rows and rows without track title
+                    const dataWithoutHeaders = jsonData.slice(1); // Skip first row (headers)
+                    const validData = dataWithoutHeaders.filter(row => row.A && row.A.toString().trim() !== '');
+                    
+                    if (validData.length === 0) {
+                        showStatus('error', 'No valid data found. Please ensure column A contains track titles.');
+                        return;
+                    }
+
+                    excelData = {
+                        workbook: workbook,
+                        worksheet: worksheet,
+                        data: validData,
+                        sheetName: firstSheetName
+                    };
+
+                    displayFileInfo(file, validData.length);
+                    updateProcessButtonState();
+                    hideStatus();
+
+                } catch (error) {
+                    console.error('Error reading Excel file:', error);
+                    showStatus('error', 'Error reading Excel file. Please ensure it\'s a valid Excel format.');
+                }
+            };
+
+            reader.onerror = function() {
+                showStatus('error', 'Error reading file. Please try again.');
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Display file info
+        function displayFileInfo(file, trackCount) {
+            fileName.textContent = `📊 ${file.name}`;
+            fileStats.textContent = `${trackCount} tracks found • ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+            fileInfo.style.display = 'block';
+        }
+
+        // Spotify Authentication using serverless function (keeps secret secure)
+        async function authenticateSpotify() {
+            try {
+                // Check if we have a valid stored token
+                const storedToken = localStorage.getItem('spotify_access_token');
+                const tokenExpiry = localStorage.getItem('spotify_token_expiry');
+                
+                if (storedToken && tokenExpiry && Date.now() < parseInt(tokenExpiry)) {
+                    accessToken = storedToken;
+                    updateAuthStatus(true);
+                    updateProcessButtonState();
+                    return;
+                }
+
+                // Get new token from our secure serverless function
+                const response = await fetch('/api/spotify-token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `Authentication failed: ${response.status}`);
+                }
+
+                const data = await response.json();
+                accessToken = data.access_token;
+                
+                // Store token with expiry (expires_in is in seconds)
+                const expiryTime = Date.now() + (data.expires_in * 1000) - 60000; // 1 minute buffer
+                localStorage.setItem('spotify_access_token', accessToken);
+                localStorage.setItem('spotify_token_expiry', expiryTime.toString());
+                
+                updateAuthStatus(true);
+                updateProcessButtonState();
+
+            } catch (error) {
+                console.error('Spotify authentication error:', error);
+                updateAuthStatus(false, `Authentication failed: ${error.message}`);
+            }
+        }
+
+        // Update auth status display
+        function updateAuthStatus(connected, message = null) {
+            if (connected) {
+                authStatus.className = 'auth-status connected';
+                authStatus.innerHTML = '<span>✅</span><span>Connected to Spotify API</span>';
+            } else {
+                authStatus.className = 'auth-status disconnected';
+                const errorMessage = message || 'Failed to connect to Spotify API';
+                authStatus.innerHTML = `<span>❌</span><span>${errorMessage}</span>`;
+            }
+        }
+
+        // Update process button state
+        function updateProcessButtonState() {
+            processButton.disabled = !accessToken || !excelData;
+        }
+
+        // Process file
+        async function processFile() {
+            if (!accessToken || !excelData) {
+                showStatus('error', 'Please connect to Spotify and upload an Excel file first.');
+                return;
+            }
+
+            // Start timing
+            processingStartTime = Date.now();
+            
+            showStatus('processing', 'Processing tracks...');
+            progressContainer.style.display = 'block';
+            processButton.disabled = true;
+
+            const tracks = excelData.data;
+            processedData = [];
+            
+            // Note: Spotify Search API doesn't support bulk/batch requests
+            // We must search each track individually, but with smart rate limiting
+            
+            for (let i = 0; i < tracks.length; i++) {
+                const track = tracks[i];
+                const title = track.A ? track.A.toString().trim() : '';
+                const artist = track.B ? track.B.toString().trim() : '';
+
+                if (!title) continue;
+
+                const elapsedTime = Date.now() - processingStartTime;
+                const elapsedText = formatDuration(elapsedTime);
+                updateProgress((i / tracks.length) * 100, `Processing ${i + 1} of ${tracks.length}: ${title} (${elapsedText})`);
+                updateResultsTable(i, title, artist, '', 'searching', null);
+
+                try {
+                    const result = await searchSpotifyForISRC(title, artist);
+                    processedData.push({
+                        index: i,
+                        title: title,
+                        artist: artist,
+                        isrc: result && result.isrc,
+                        releaseDate: result && result.releaseDate,
+                        releaseYear: result && result.releaseYear,
+                        found: !!(result && result.isrc)
+                    });
+
+                    const displayIsrc = result && result.isrc ? result.isrc : 'Not found';
+                    const statusValue = result && result.isrc ? 'found' : 'not-found';
+                    updateResultsTable(i, title, artist, displayIsrc, statusValue, result ? result.releaseYear : null);
+                } catch (error) {
+                    console.error(`Error processing ${title}:`, error);
+                    processedData.push({
+                        index: i,
+                        title: title,
+                        artist: artist,
+                        isrc: 'Error',
+                        releaseDate: null,
+                        releaseYear: null,
+                        found: false
+                    });
+
+                    updateResultsTable(i, title, artist, 'Error', 'not-found', null);
+                }
+
+                // Smart rate limiting delay
+                await smartRateLimit();
+            }
+
+            // Calculate processing time
+            const processingEndTime = Date.now();
+            const processingDuration = processingEndTime - processingStartTime;
+            const durationText = formatDuration(processingDuration);
+            
+            updateProgress(100, 'Processing complete!');
+            showStatus('success', `✅ Processing complete! Found ISRCs for ${processedData.filter(t => t.found).length} of ${processedData.length} tracks in ${durationText}.`);
+            
+            processButton.disabled = false;
+            resultsSection.style.display = 'block';
+            
+            // Hide progress after a short delay
+            setTimeout(() => {
+                progressContainer.style.display = 'none';
+            }, 2000);
+        }
+
+        // Smart rate limiting function based on Spotify's 30-second rolling window
+        async function smartRateLimit() {
+            const now = Date.now();
+            
+            // Reset counter if 30 seconds have passed (rolling window as per Spotify docs)
+            if (now - windowStartTime > 30000) {
+                requestCount = 0;
+                windowStartTime = now;
+            }
+            
+            // Conservative rate limiting - Spotify's limit varies, but we stay safe
+            if (requestCount >= 90) { // Very conservative limit
+                const waitTime = 2000; // 2 second delay
+                console.log(`Proactive rate limiting: ${requestCount} requests in window, waiting ${waitTime/1000}s`);
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+            } else if (requestCount >= 70) {
+                await new Promise(resolve => setTimeout(resolve, 750)); // 0.75 second delay
+            } else if (requestCount >= 50) {
+                await new Promise(resolve => setTimeout(resolve, 300)); // 0.3 second delay
+            } else {
+                await new Promise(resolve => setTimeout(resolve, 100)); // Normal delay
+            }
+            
+            requestCount++;
+        }
+
+        // Search Spotify for ISRC with retry logic
+        async function searchSpotifyForISRC(title, artist, retryCount = 0) {
+            if (!accessToken) return null;
+
+            const maxRetries = 3;
+            
+            try {
+                let query = title;
+                if (artist) {
+                    query = `track:"${title}" artist:"${artist}"`;
+                }
+
+                const response = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=10`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                // Handle rate limiting (429)
+                if (response.status === 429) {
+                    const retryAfter = response.headers.get('Retry-After');
+                    const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : Math.pow(2, retryCount) * 1000; // Exponential backoff
+                    
+                    console.log(`Rate limited for "${title}". Waiting ${waitTime/1000} seconds...`);
+                    
+                    if (retryCount < maxRetries) {
+                        // Update progress to show we're waiting for rate limit
+                        const currentIndex = processedData.length;
+                        const totalTracks = excelData.data.length;
+                        updateProgress((currentIndex / totalTracks) * 100, 
+                            `Rate limited - waiting ${Math.ceil(waitTime/1000)}s before retrying "${title}"`);
+                        
+                        await new Promise(resolve => setTimeout(resolve, waitTime));
+                        return searchSpotifyForISRC(title, artist, retryCount + 1);
+                    } else {
+                        throw new Error('Rate limit exceeded. Max retries reached.');
+                    }
+                }
+
+                // Handle token expiry (401)
+                if (response.status === 401) {
+                    console.log('Token expired, reauthenticating...');
+                    localStorage.removeItem('spotify_access_token');
+                    localStorage.removeItem('spotify_token_expiry');
+                    await authenticateSpotify();
+                    
+                    if (!accessToken) {
+                        throw new Error('Spotify authentication failed. Please refresh the page.');
+                    }
+                    
+                    if (retryCount < maxRetries) {
+                        return searchSpotifyForISRC(title, artist, retryCount + 1);
+                    }
+                }
+
+                // Handle other errors
+                if (!response.ok) {
+                    if (retryCount < maxRetries && response.status >= 500) {
+                        // Server error, retry with exponential backoff
+                        const waitTime = Math.pow(2, retryCount) * 1000;
+                        await new Promise(resolve => setTimeout(resolve, waitTime));
+                        return searchSpotifyForISRC(title, artist, retryCount + 1);
+                    }
+                    throw new Error(`Spotify API error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                return extractISRCFromResults(data, artist, title);
+            } catch (error) {
+                if (retryCount < maxRetries && (error.name === 'TypeError' || error.message.includes('Failed to fetch'))) {
+                    // Network error, retry
+                    const waitTime = Math.pow(2, retryCount) * 1000;
+                    console.log(`Network error, retrying in ${waitTime/1000} seconds...`);
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                    return searchSpotifyForISRC(title, artist, retryCount + 1);
+                }
+                
+                console.error('Spotify search error:', error);
+                throw error;
+            }
+        }
+
+        // Extract ISRC from Spotify search results with match confidence indicator
+        function extractISRCFromResults(data, artist, searchTitle) {
+            if (!data.tracks || !data.tracks.items || data.tracks.items.length === 0) {
+                return null;
+            }
+
+            // Helper function to normalize text (handle different apostrophe types, etc.)
+            function normalizeText(text) {
+                return text
+                    .toLowerCase()
+                    .trim()
+                    .replace(/[\u2018\u2019\u201A\u201B''`]/g, "'")  // Normalize ALL apostrophe types (including U+2019)
+                    .replace(/[\u201C\u201D\u201E\u201F""]/g, '"')   // Normalize different quote types
+                    .replace(/\u2013|\u2014/g, '-') // Normalize different dash types
+                    .replace(/\s+/g, ' ');   // Normalize spaces
+            }
+
+            // Helper function to check if titles match closely
+            function titlesMatch(trackTitle, searchTitle) {
+                const cleanTrack = trackTitle.toLowerCase().trim();
+                const cleanSearch = searchTitle.toLowerCase().trim();
+                
+                // Exact match first
+                if (cleanTrack === cleanSearch) return true;
+                
+                // Clean only the Spotify track title (not the user's search term)
+                const cleanSpotifyTrack = cleanTrack
+                    .replace(/\s*\([^)]*\)/g, '') // Remove parentheses content
+                    .replace(/\s*\[[^\]]*\]/g, '') // Remove brackets content  
+                    .replace(/\s*-\s*.*$/, '')     // Remove everything after dash (like "Bones - Wedding" -> "Bones")
+                    .replace(/\s*(feat|featuring|ft)\.?\s+.*$/i, '') // Remove featuring
+                    .replace(/[^\w\s]/g, '')       // Remove special characters
+                    .replace(/\s+/g, ' ')          // Normalize spaces
+                    .trim();
+                
+                // Check if cleaned Spotify track matches user's exact search
+                return cleanSpotifyTrack === cleanSearch;
+            }
+
+            function getReleaseInfo(track) {
+                const releaseDate = track && track.album && track.album.release_date ? track.album.release_date : null;
+                let releaseYear = null;
+                if (releaseDate && /\d{4}/.test(releaseDate)) {
+                    const yearText = releaseDate.slice(0, 4);
+                    const parsed = parseInt(yearText, 10);
+                    if (!isNaN(parsed)) releaseYear = parsed;
+                }
+                return { releaseDate, releaseYear };
+            }
+
+            // STAGE 1: Try to find perfect match (EXACT title + ALL artists + ISRC)
+            for (const track of data.tracks.items) {
+                // Check if the track has an ISRC and title matches EXACTLY (with normalization)
+                const exactTitleMatch = normalizeText(track.name) === normalizeText(searchTitle);
+                
+                // Debug logging for troubleshooting
+                if (searchTitle.toLowerCase().includes("livin")) {
+                    const normSpotify = normalizeText(track.name);
+                    const normSearch = normalizeText(searchTitle);
+                    console.log(`🔍 Debug for "${searchTitle}":`, {
+                        spotifyTitle: track.name,
+                        normalizedSpotify: normSpotify,
+                        normalizedSearch: normSearch,
+                        match: exactTitleMatch,
+                        hasISRC: !!(track.external_ids && track.external_ids.isrc),
+                        // Character-level debugging
+                        spotifyLength: normSpotify.length,
+                        searchLength: normSearch.length,
+                        spotifyChars: Array.from(normSpotify).map(c => c.charCodeAt(0)),
+                        searchChars: Array.from(normSearch).map(c => c.charCodeAt(0)),
+                        stringComparison: normSpotify === normSearch
+                    });
+                }
+                
+                if (track.external_ids && track.external_ids.isrc && exactTitleMatch) {
+                    // If artist was provided, try to match it (with normalization)
+                    if (artist) {
+                        const trackArtists = track.artists.map(a => normalizeText(a.name));
+                        
+                        // Smart multi-artist handling: split by comma and check each artist
+                        const searchArtists = normalizeText(artist).split(',').map(a => a.trim());
+                        
+                        // Check if ALL of the provided artists match ANY of the track artists (perfect match)
+                        const allArtistsFound = searchArtists.every(searchArtist => 
+                            trackArtists.some(trackArtist => 
+                                trackArtist.includes(searchArtist) || searchArtist.includes(trackArtist)
+                            )
+                        );
+                        
+                        // More debug logging
+                        if (searchTitle.toLowerCase().includes("livin")) {
+                            console.log(`🎤 Artist matching for "${searchTitle}":`, {
+                                searchArtists,
+                                trackArtists,
+                                allFound: allArtistsFound
+                            });
+                        }
+                        
+                        if (allArtistsFound) {
+                            const info = getReleaseInfo(track);
+                            return { isrc: track.external_ids.isrc, releaseDate: info.releaseDate, releaseYear: info.releaseYear };
+                        }
+                    } else {
+                        // No artist provided, but title match is exact
+                        const info = getReleaseInfo(track);
+                        return { isrc: track.external_ids.isrc, releaseDate: info.releaseDate, releaseYear: info.releaseYear };
+                    }
+                }
+            }
+            
+            // STAGE 1.5: Try partial artist matches with title match (some artists found)
+            for (const track of data.tracks.items) {
+                if (track.external_ids && track.external_ids.isrc && artist && titlesMatch(track.name, searchTitle)) {
+                    const trackArtists = track.artists.map(a => a.name.toLowerCase());
+                    const searchArtists = artist.toLowerCase().split(',').map(a => a.trim());
+                    
+                    // Check if ANY of the provided artists matches (partial match)
+                    const someArtistsFound = searchArtists.some(searchArtist => 
+                        trackArtists.some(trackArtist => 
+                            trackArtist.includes(searchArtist) || searchArtist.includes(trackArtist)
+                        )
+                    );
+                    
+                    if (someArtistsFound) {
+                        const info = getReleaseInfo(track);
+                        return { isrc: track.external_ids.isrc + " ?", releaseDate: info.releaseDate, releaseYear: info.releaseYear };
+                    }
+                }
+            }
+            
+            // STAGE 2: Fallback - return first available ISRC with uncertainty indicator (only if no artist provided)
+            if (!artist) {
+                for (const track of data.tracks.items) {
+                    if (track.external_ids && track.external_ids.isrc) {
+                        const info = getReleaseInfo(track);
+                        return { isrc: track.external_ids.isrc + " ?", releaseDate: info.releaseDate, releaseYear: info.releaseYear };
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        // Update progress
+        function updateProgress(percentage, text) {
+            progressFill.style.width = `${percentage}%`;
+            progressText.textContent = text;
+        }
+
+        // Format duration in human-readable format
+        function formatDuration(milliseconds) {
+            const seconds = Math.floor(milliseconds / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            
+            if (hours > 0) {
+                return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+            } else if (minutes > 0) {
+                return `${minutes}m ${seconds % 60}s`;
+            } else if (seconds > 0) {
+                return `${seconds}s`;
+            } else {
+                return `${milliseconds}ms`;
+            }
+        }
+
+        // Update results table
+        function updateResultsTable(index, title, artist, isrc, status, releaseYear) {
+            if (index === 0) {
+                resultsTbody.innerHTML = '';
+                resultsSection.style.display = 'block';
+            }
+
+            const row = document.createElement('tr');
+            
+            // Check if this is an uncertain match (ISRC ends with " ?")
+            const isUncertainMatch = isrc && isrc.endsWith(' ?');
+            
+            // Determine status icon and text based on match quality
+            let statusIcon, statusText, statusClass;
+            if (status === 'found') {
+                if (isUncertainMatch) {
+                    statusIcon = '⚠️';
+                    statusText = 'uncertain';
+                    statusClass = 'uncertain';
+                } else {
+                    statusIcon = '✅';
+                    statusText = 'perfect match';
+                    statusClass = 'found';
+                }
+            } else if (status === 'not-found') {
+                statusIcon = '❌';
+                statusText = 'not found';
+                statusClass = 'not-found';
+            } else {
+                statusIcon = '🔍';
+                statusText = 'searching';
+                statusClass = 'searching';
+            }
+            
+            // Format ISRC with highlighting for uncertain matches
+            let formattedIsrc = isrc;
+            if (isUncertainMatch) {
+                // Add uncertain-match class to row
+                row.classList.add('uncertain-match');
+                // Highlight the "?" in the ISRC
+                formattedIsrc = isrc.replace(' ?', ' <span class="uncertain-indicator">?</span>');
+            }
+
+            // Highlight old releases (release year not equal to current year)
+            const currentYear = new Date().getFullYear();
+            const parsedYear = typeof releaseYear === 'string' ? parseInt(releaseYear, 10) : releaseYear;
+            if (parsedYear && !isNaN(parsedYear) && parsedYear !== currentYear) {
+                row.classList.add('old-release');
+            }
+            
+            // Find release date from processedData if available for this index
+            let releaseDateText = '';
+            try {
+                const pd = processedData && processedData.find(p => p.index === index);
+                releaseDateText = (pd && pd.releaseDate) ? pd.releaseDate : '';
+            } catch (_) {
+                releaseDateText = '';
+            }
+
+            row.innerHTML = `
+                <td>${title}</td>
+                <td>${artist || 'N/A'}</td>
+                <td>${formattedIsrc}</td>
+                <td>${releaseDateText || ''}</td>
+                <td class="${statusClass}"><span class="status-icon">${statusIcon}</span>${statusText}</td>
+            `;
+            
+            // If updating existing row, replace it
+            const existingRows = resultsTbody.children;
+            if (existingRows[index]) {
+                resultsTbody.replaceChild(row, existingRows[index]);
+            } else {
+                resultsTbody.appendChild(row);
+            }
+        }
+
+        // Download updated Excel
+        function downloadUpdatedExcel() {
+            if (!excelData || !processedData) {
+                showStatus('error', 'No data to download');
+                return;
+            }
+
+            try {
+                // Sort processedData by match quality:
+                // 1. Perfect matches (has ISRC and doesn't end with " ?")
+                // 2. Uncertain matches (has ISRC and ends with " ?")
+                // 3. Not found (no ISRC or error)
+                const sortedData = [...processedData].sort((a, b) => {
+                    const aIsrc = a.isrc;
+                    const bIsrc = b.isrc;
+                    
+                    // Determine match quality for 'a'
+                    let aQuality;
+                    if (!aIsrc || aIsrc === 'Error' || aIsrc === 'Not found') {
+                        aQuality = 3; // Not found
+                    } else if (aIsrc.endsWith(' ?')) {
+                        aQuality = 2; // Uncertain
+                    } else {
+                        aQuality = 1; // Perfect match
+                    }
+                    
+                    // Determine match quality for 'b'
+                    let bQuality;
+                    if (!bIsrc || bIsrc === 'Error' || bIsrc === 'Not found') {
+                        bQuality = 3; // Not found
+                    } else if (bIsrc.endsWith(' ?')) {
+                        bQuality = 2; // Uncertain
+                    } else {
+                        bQuality = 1; // Perfect match
+                    }
+                    
+                    // Sort by quality (1 < 2 < 3)
+                    return aQuality - bQuality;
+                });
+                
+                // Create a new workbook from scratch with sorted data
+                const newWorkbook = XLSX.utils.book_new();
+                
+                // Prepare data array for the new sheet
+                const outputData = [];
+                
+                // Copy the header row from the original worksheet
+                const originalRange = XLSX.utils.decode_range(excelData.worksheet['!ref']);
+                const headerRow = [];
+                for (let col = originalRange.s.c; col <= Math.max(originalRange.e.c, 2); col++) {
+                    const cellAddress = XLSX.utils.encode_cell({r: 0, c: col});
+                    const cell = excelData.worksheet[cellAddress];
+                    headerRow.push(cell ? cell.v : '');
+                }
+                outputData.push(headerRow);
+                
+                // Add sorted data rows
+                sortedData.forEach(item => {
+                    const row = [];
+                    
+                    // Column A: Title
+                    row.push(item.title);
+                    
+                    // Column B: Artist
+                    row.push(item.artist || '');
+                    
+                    // Column C: ISRC
+                    let isrcValue = item.isrc;
+                    if (!isrcValue || isrcValue === 'Error' || isrcValue === 'Not found') {
+                        isrcValue = 'Not found';
+                    }
+                    row.push(isrcValue);
+                    
+                    // Add any additional columns from the original data if they exist
+                    const originalRow = excelData.data[item.index];
+                    if (originalRow) {
+                        // Copy columns D onwards if they exist
+                        ['D', 'E', 'F', 'G', 'H', 'I', 'J'].forEach(colName => {
+                            if (originalRow[colName] !== undefined && originalRow[colName] !== '') {
+                                row.push(originalRow[colName]);
+                            }
+                        });
+                    }
+                    
+                    outputData.push(row);
+                });
+                
+                // Create worksheet from the sorted data
+                const newWorksheet = XLSX.utils.aoa_to_sheet(outputData);
+                
+                // Copy worksheet properties from original if they exist
+                if (excelData.worksheet['!cols']) newWorksheet['!cols'] = excelData.worksheet['!cols'];
+
+                // Add worksheet to workbook
+                XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, excelData.sheetName);
+
+                // Generate filename
+                const originalName = currentFile.name.replace(/\.[^/.]+$/, '');
+                const newFilename = `${originalName}_with_ISRCs.xlsx`;
+
+                // Download
+                XLSX.writeFile(newWorkbook, newFilename);
+                
+                // Count results for success message
+                const perfectMatches = sortedData.filter(item => {
+                    const isrc = item.isrc;
+                    return isrc && isrc !== 'Error' && isrc !== 'Not found' && !isrc.endsWith(' ?');
+                }).length;
+                
+                const uncertainMatches = sortedData.filter(item => {
+                    const isrc = item.isrc;
+                    return isrc && isrc.endsWith(' ?');
+                }).length;
+                
+                const notFound = sortedData.filter(item => {
+                    const isrc = item.isrc;
+                    return !isrc || isrc === 'Error' || isrc === 'Not found';
+                }).length;
+                
+                showStatus('success', `✅ Excel file downloaded successfully! (${perfectMatches} perfect matches, ${uncertainMatches} uncertain, ${notFound} not found)`);
+                
+            } catch (error) {
+                console.error('Error creating Excel file:', error);
+                showStatus('error', 'Error creating Excel file. Please try again.');
+            }
+        }
+
+        // Status message functions
+        function showStatus(type, message) {
+            statusMessage.className = `status-message ${type}`;
+            statusMessage.textContent = message;
+            statusMessage.style.display = 'block';
+        }
+
+        function hideStatus() {
+            statusMessage.style.display = 'none';
+        }
+
+        // Filter results table
+        function filterResults() {
+            const searchTerm = resultsSearch.value.toLowerCase().trim();
+            const rows = resultsTbody.querySelectorAll('tr');
+            
+            rows.forEach(row => {
+                if (!searchTerm) {
+                    // Show all rows if search is empty
+                    row.style.display = '';
+                    return;
+                }
+                
+                const cells = row.querySelectorAll('td');
+                if (cells.length >= 5) {
+                    const title = cells[0].textContent.toLowerCase();
+                    const artist = cells[1].textContent.toLowerCase();
+                    const isrc = cells[2].textContent.toLowerCase().replace(/ \?/g, ''); // Remove uncertainty indicator
+                    const releaseDate = cells[3].textContent.toLowerCase();
+                    
+                    // Check if search term matches any column
+                    const matches = title.includes(searchTerm) || 
+                                  artist.includes(searchTerm) || 
+                                  isrc.includes(searchTerm) ||
+                                  releaseDate.includes(searchTerm);
+                    
+                    row.style.display = matches ? '' : 'none';
+                }
+            });
+        }
+    </script>
+</body>
+</html>
