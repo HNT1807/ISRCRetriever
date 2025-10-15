@@ -441,26 +441,36 @@
         /* Column widths */
         .results-table th:nth-child(1),
         .results-table td:nth-child(1) {
-            width: 32%;
+            width: 20%;
         }
 
         .results-table th:nth-child(2),
         .results-table td:nth-child(2) {
-            width: 25%;
+            width: 15%;
         }
 
         .results-table th:nth-child(3),
         .results-table td:nth-child(3) {
-            width: 15%;
+            width: 13%;
         }
 
         .results-table th:nth-child(4),
         .results-table td:nth-child(4) {
-            width: 13%;
+            width: 18%;
         }
 
         .results-table th:nth-child(5),
         .results-table td:nth-child(5) {
+            width: 7%;
+        }
+
+        .results-table th:nth-child(6),
+        .results-table td:nth-child(6) {
+            width: 12%;
+        }
+
+        .results-table th:nth-child(7),
+        .results-table td:nth-child(7) {
             width: 15%;
         }
 
@@ -565,7 +575,7 @@
             <!-- Search Bar -->
             <div class="search-container">
                 <div class="search-icon">🔍</div>
-                <input type="text" class="search-input" id="results-search" placeholder="Search by title, artist, ISRC, or release date...">
+                <input type="text" class="search-input" id="results-search" placeholder="Search by title, artist, ISRC, album, or release date...">
             </div>
             
             <div style="overflow-x: auto;">
@@ -575,6 +585,8 @@
                             <th>Track Title</th>
                             <th>Artist</th>
                             <th>ISRC</th>
+                            <th>Album/Release</th>
+                            <th>Track #</th>
                             <th>Release Date</th>
                             <th>Status</th>
                         </tr>
@@ -583,6 +595,24 @@
                     </tbody>
                 </table>
             </div>
+            
+            <!-- Export Options -->
+            <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(255,255,255,0.6); border-radius: 8px;">
+                <div style="font-weight: 600; margin-bottom: 0.75rem; color: var(--primary-text);">📥 Export Options</div>
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; color: var(--primary-text); margin-bottom: 0.5rem;">
+                    <input type="checkbox" id="include-release-dates" checked style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent-color);">
+                    <span>Include release dates</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; color: var(--primary-text); margin-bottom: 0.5rem;">
+                    <input type="checkbox" id="include-album-names" checked style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent-color);">
+                    <span>Include album/release titles</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; color: var(--primary-text);">
+                    <input type="checkbox" id="include-track-numbers" checked style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent-color);">
+                    <span>Include track numbers</span>
+                </label>
+            </div>
+            
             <button class="button" id="download-button" style="margin-top: 1rem;">💾 Download Updated Excel</button>
         </div>
     </div>
@@ -614,6 +644,9 @@
         const resultsTbody = document.getElementById('results-tbody');
         const downloadButton = document.getElementById('download-button');
         const resultsSearch = document.getElementById('results-search');
+        const includeReleaseDatesCheckbox = document.getElementById('include-release-dates');
+        const includeAlbumNamesCheckbox = document.getElementById('include-album-names');
+        const includeTrackNumbersCheckbox = document.getElementById('include-track-numbers');
 
         // Initialize app
         document.addEventListener('DOMContentLoaded', () => {
@@ -741,7 +774,12 @@
             fileInfo.style.display = 'block';
         }
 
-        // Spotify Authentication using serverless function (keeps secret secure)
+        // Development mode credentials (ONLY for local testing - NOT secure for production!)
+        // These will be ignored when deployed on Vercel (uses serverless function instead)
+        const DEV_SPOTIFY_CLIENT_ID = '6b8938094c324e75bb68ac397c34bec1';
+        const DEV_SPOTIFY_CLIENT_SECRET = 'defc7eb179184289b69d04fa34580ce9';
+        
+        // Spotify Authentication with development fallback
         async function authenticateSpotify() {
             try {
                 // Check if we have a valid stored token
@@ -755,17 +793,47 @@
                     return;
                 }
 
-                // Get new token from our secure serverless function
-                const response = await fetch('/api/spotify-token', {
+                // Try to use secure serverless function first (production/Vercel)
+                try {
+                    const response = await fetch('/api/spotify-token', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        accessToken = data.access_token;
+                        
+                        // Store token with expiry (expires_in is in seconds)
+                        const expiryTime = Date.now() + (data.expires_in * 1000) - 60000; // 1 minute buffer
+                        localStorage.setItem('spotify_access_token', accessToken);
+                        localStorage.setItem('spotify_token_expiry', expiryTime.toString());
+                        
+                        updateAuthStatus(true);
+                        updateProcessButtonState();
+                        return;
+                    }
+                } catch (apiError) {
+                    console.log('Serverless API not available, using development mode...');
+                }
+
+                // Fallback to client-side auth for local development
+                console.log('🔧 Development mode: Using client-side authentication');
+                const credentials = btoa(`${DEV_SPOTIFY_CLIENT_ID}:${DEV_SPOTIFY_CLIENT_SECRET}`);
+                
+                const response = await fetch('https://accounts.spotify.com/api/token', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
-                    }
+                        'Authorization': `Basic ${credentials}`,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: 'grant_type=client_credentials'
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || `Authentication failed: ${response.status}`);
+                    throw new Error(`Authentication failed: ${response.status}`);
                 }
 
                 const data = await response.json();
@@ -843,6 +911,8 @@
                         isrc: result && result.isrc,
                         releaseDate: result && result.releaseDate,
                         releaseYear: result && result.releaseYear,
+                        albumName: result && result.albumName,
+                        trackNumber: result && result.trackNumber,
                         found: !!(result && result.isrc)
                     });
 
@@ -858,6 +928,8 @@
                         isrc: 'Error',
                         releaseDate: null,
                         releaseYear: null,
+                        albumName: null,
+                        trackNumber: null,
                         found: false
                     });
 
@@ -1034,13 +1106,21 @@
 
             function getReleaseInfo(track) {
                 const releaseDate = track && track.album && track.album.release_date ? track.album.release_date : null;
+                const albumName = track && track.album && track.album.name ? track.album.name : null;
+                const trackNumber = track && track.track_number ? track.track_number : null;
+                
                 let releaseYear = null;
                 if (releaseDate && /\d{4}/.test(releaseDate)) {
                     const yearText = releaseDate.slice(0, 4);
                     const parsed = parseInt(yearText, 10);
                     if (!isNaN(parsed)) releaseYear = parsed;
                 }
-                return { releaseDate, releaseYear };
+                return { 
+                    releaseDate, 
+                    releaseYear, 
+                    albumName, 
+                    trackNumber 
+                };
             }
 
             // STAGE 1: Try to find perfect match (EXACT title + ALL artists + ISRC)
@@ -1093,12 +1173,24 @@
                         
                         if (allArtistsFound) {
                             const info = getReleaseInfo(track);
-                            return { isrc: track.external_ids.isrc, releaseDate: info.releaseDate, releaseYear: info.releaseYear };
+                            return { 
+                                isrc: track.external_ids.isrc, 
+                                releaseDate: info.releaseDate, 
+                                releaseYear: info.releaseYear,
+                                albumName: info.albumName,
+                                trackNumber: info.trackNumber
+                            };
                         }
                     } else {
                         // No artist provided, but title match is exact
                         const info = getReleaseInfo(track);
-                        return { isrc: track.external_ids.isrc, releaseDate: info.releaseDate, releaseYear: info.releaseYear };
+                        return { 
+                            isrc: track.external_ids.isrc, 
+                            releaseDate: info.releaseDate, 
+                            releaseYear: info.releaseYear,
+                            albumName: info.albumName,
+                            trackNumber: info.trackNumber
+                        };
                     }
                 }
             }
@@ -1118,7 +1210,13 @@
                     
                     if (someArtistsFound) {
                         const info = getReleaseInfo(track);
-                        return { isrc: track.external_ids.isrc + " ?", releaseDate: info.releaseDate, releaseYear: info.releaseYear };
+                        return { 
+                            isrc: track.external_ids.isrc + " ?", 
+                            releaseDate: info.releaseDate, 
+                            releaseYear: info.releaseYear,
+                            albumName: info.albumName,
+                            trackNumber: info.trackNumber
+                        };
                     }
                 }
             }
@@ -1128,7 +1226,13 @@
                 for (const track of data.tracks.items) {
                     if (track.external_ids && track.external_ids.isrc) {
                         const info = getReleaseInfo(track);
-                        return { isrc: track.external_ids.isrc + " ?", releaseDate: info.releaseDate, releaseYear: info.releaseYear };
+                        return { 
+                            isrc: track.external_ids.isrc + " ?", 
+                            releaseDate: info.releaseDate, 
+                            releaseYear: info.releaseYear,
+                            albumName: info.albumName,
+                            trackNumber: info.trackNumber
+                        };
                     }
                 }
             }
@@ -1209,19 +1313,27 @@
                 row.classList.add('old-release');
             }
             
-            // Find release date from processedData if available for this index
+            // Find additional data from processedData if available for this index
             let releaseDateText = '';
+            let albumNameText = '';
+            let trackNumberText = '';
             try {
                 const pd = processedData && processedData.find(p => p.index === index);
-                releaseDateText = (pd && pd.releaseDate) ? pd.releaseDate : '';
+                if (pd) {
+                    releaseDateText = pd.releaseDate || '';
+                    albumNameText = pd.albumName || '';
+                    trackNumberText = pd.trackNumber || '';
+                }
             } catch (_) {
-                releaseDateText = '';
+                // Ignore errors
             }
 
             row.innerHTML = `
                 <td>${title}</td>
                 <td>${artist || 'N/A'}</td>
                 <td>${formattedIsrc}</td>
+                <td>${albumNameText || ''}</td>
+                <td>${trackNumberText || ''}</td>
                 <td>${releaseDateText || ''}</td>
                 <td class="${statusClass}"><span class="status-icon">${statusIcon}</span>${statusText}</td>
             `;
@@ -1243,6 +1355,11 @@
             }
 
             try {
+                // Check user's export preferences
+                const includeReleaseDates = includeReleaseDatesCheckbox.checked;
+                const includeAlbumNames = includeAlbumNamesCheckbox.checked;
+                const includeTrackNumbers = includeTrackNumbersCheckbox.checked;
+                
                 // Sort processedData by match quality:
                 // 1. Perfect matches (has ISRC and doesn't end with " ?")
                 // 2. Uncertain matches (has ISRC and ends with " ?")
@@ -1281,14 +1398,37 @@
                 // Prepare data array for the new sheet
                 const outputData = [];
                 
-                // Copy the header row from the original worksheet
+                // Build header row
                 const originalRange = XLSX.utils.decode_range(excelData.worksheet['!ref']);
                 const headerRow = [];
-                for (let col = originalRange.s.c; col <= Math.max(originalRange.e.c, 2); col++) {
+                
+                // Get first 3 columns from original (Title, Artist, ISRC area)
+                for (let col = originalRange.s.c; col <= Math.min(originalRange.e.c, 2); col++) {
                     const cellAddress = XLSX.utils.encode_cell({r: 0, c: col});
                     const cell = excelData.worksheet[cellAddress];
                     headerRow.push(cell ? cell.v : '');
                 }
+                
+                // Add optional Spotify metadata headers based on user selection
+                if (includeReleaseDates) {
+                    headerRow.push('Release Date');
+                }
+                if (includeAlbumNames) {
+                    headerRow.push('Album/Release Title');
+                }
+                if (includeTrackNumbers) {
+                    headerRow.push('Track Number');
+                }
+                
+                // Add any remaining original columns (D onwards)
+                for (let col = 3; col <= originalRange.e.c; col++) {
+                    const cellAddress = XLSX.utils.encode_cell({r: 0, c: col});
+                    const cell = excelData.worksheet[cellAddress];
+                    if (cell && cell.v) {
+                        headerRow.push(cell.v);
+                    }
+                }
+                
                 outputData.push(headerRow);
                 
                 // Add sorted data rows
@@ -1307,6 +1447,17 @@
                         isrcValue = 'Not found';
                     }
                     row.push(isrcValue);
+                    
+                    // Add optional Spotify metadata columns based on user selection
+                    if (includeReleaseDates) {
+                        row.push(item.releaseDate || '');
+                    }
+                    if (includeAlbumNames) {
+                        row.push(item.albumName || '');
+                    }
+                    if (includeTrackNumbers) {
+                        row.push(item.trackNumber || '');
+                    }
                     
                     // Add any additional columns from the original data if they exist
                     const originalRow = excelData.data[item.index];
@@ -1386,16 +1537,20 @@
                 }
                 
                 const cells = row.querySelectorAll('td');
-                if (cells.length >= 5) {
+                if (cells.length >= 7) {
                     const title = cells[0].textContent.toLowerCase();
                     const artist = cells[1].textContent.toLowerCase();
                     const isrc = cells[2].textContent.toLowerCase().replace(/ \?/g, ''); // Remove uncertainty indicator
-                    const releaseDate = cells[3].textContent.toLowerCase();
+                    const albumName = cells[3].textContent.toLowerCase();
+                    const trackNumber = cells[4].textContent.toLowerCase();
+                    const releaseDate = cells[5].textContent.toLowerCase();
                     
                     // Check if search term matches any column
                     const matches = title.includes(searchTerm) || 
                                   artist.includes(searchTerm) || 
                                   isrc.includes(searchTerm) ||
+                                  albumName.includes(searchTerm) ||
+                                  trackNumber.includes(searchTerm) ||
                                   releaseDate.includes(searchTerm);
                     
                     row.style.display = matches ? '' : 'none';
