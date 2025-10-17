@@ -1439,7 +1439,8 @@
                         row.push(item.albumName || '');
                     }
                     if (includeTrackNumbers) {
-                        row.push(item.trackNumber || '');
+                        // Convert to string to force left alignment in Excel
+                        row.push(item.trackNumber ? String(item.trackNumber) : '');
                     }
                     
                     // Add any additional columns from the original data if they exist
