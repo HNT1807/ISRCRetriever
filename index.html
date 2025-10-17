@@ -1398,16 +1398,8 @@
                 // Prepare data array for the new sheet
                 const outputData = [];
                 
-                // Build header row
-                const originalRange = XLSX.utils.decode_range(excelData.worksheet['!ref']);
-                const headerRow = [];
-                
-                // Get first 3 columns from original (Title, Artist, ISRC area)
-                for (let col = originalRange.s.c; col <= Math.min(originalRange.e.c, 2); col++) {
-                    const cellAddress = XLSX.utils.encode_cell({r: 0, c: col});
-                    const cell = excelData.worksheet[cellAddress];
-                    headerRow.push(cell ? cell.v : '');
-                }
+                // Build header row with explicit headers
+                const headerRow = ['Title', 'Artist', 'ISRC'];
                 
                 // Add optional Spotify metadata headers based on user selection
                 if (includeReleaseDates) {
@@ -1418,15 +1410,6 @@
                 }
                 if (includeTrackNumbers) {
                     headerRow.push('Track Number');
-                }
-                
-                // Add any remaining original columns (D onwards)
-                for (let col = 3; col <= originalRange.e.c; col++) {
-                    const cellAddress = XLSX.utils.encode_cell({r: 0, c: col});
-                    const cell = excelData.worksheet[cellAddress];
-                    if (cell && cell.v) {
-                        headerRow.push(cell.v);
-                    }
                 }
                 
                 outputData.push(headerRow);
